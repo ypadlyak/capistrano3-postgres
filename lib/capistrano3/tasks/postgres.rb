@@ -65,15 +65,15 @@ namespace :postgres do
       end
     end
 
-    desc "Import last dump"
-    task :import do
+    desc 'Import last dump'
+    task :import, [:database_name] do |_task, args|
       grab_local_database_config
       run_locally do
         config = fetch(:postgres_local_database_config)
 
-        unless fetch(:database_name)
-          ask(:database_name, config['database'])
-        end
+        # Prompt for database name if not provided
+        database_name = args[:database_name] || ask(:database_name, config['database'])
+        set(:database_name, database_name)
 
         with rails_env: :development do
           file_name = capture("ls -v tmp/#{fetch :postgres_backup_dir}").split(/\n/).last
@@ -81,7 +81,7 @@ namespace :postgres do
           begin
             pgpass_path = File.join(Dir.pwd, '.pgpass')
             File.open(pgpass_path, 'w+', 0600) { |file| file.write("*:*:*:#{config['username'] || config['user']}:#{config['password']}") }
-            execute "PGPASSFILE=#{pgpass_path} pg_restore -c --if-exists #{user_option(config)} --no-owner -h #{config['host']} -p #{config['port'] || 5432 } -d #{fetch(:database_name)} #{file_path}"
+            execute "PGPASSFILE=#{pgpass_path} pg_restore -c --if-exists #{user_option(config)} --no-owner -h #{config['host']} -p #{config['port'] || 5432} -d #{fetch(:database_name)} #{file_path}"
             info 'Import performed successfully!'
           rescue SSHKit::Command::Failed => e
             warn e.inspect
@@ -120,13 +120,17 @@ namespace :postgres do
   end
 
   desc 'Replicate database locally'
-  task :replicate do
+  task :replicate, [:database_name] do |_task, args|
     grab_local_database_config
-    ask(:database_name, fetch(:postgres_local_database_config)['database'])
-    invoke "postgres:backup:create"
-    invoke "postgres:backup:download", true
-    invoke "postgres:backup:import"
-    invoke("postgres:backup:cleanup") if fetch(:postgres_keep_local_dumps) > 0
+
+    # Prompt for database name if not provided
+    database_name = args[:database_name] || ask(:database_name, fetch(:postgres_local_database_config)['database'])
+    set(:database_name, database_name)
+
+    invoke 'postgres:backup:create'
+    invoke 'postgres:backup:download', true
+    invoke 'postgres:backup:import', [database_name]
+    invoke('postgres:backup:cleanup') if fetch(:postgres_keep_local_dumps) > 0
   end
 
   def user_option(config)
