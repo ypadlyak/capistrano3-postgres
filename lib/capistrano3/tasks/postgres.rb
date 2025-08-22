@@ -162,7 +162,7 @@ namespace :postgres do
     
     # Prompt for database name if not provided
     grab_local_database_config
-    database_name = args[:database_name] || ask(:database_name, fetch(:postgres_local_database_config)['database']).to_s
+    database_name = args[:database_name] || ask(:database_name, fetch(:postgres_local_database_config)['database'])
     set(:database_name, database_name)
     
     # Perform streaming operation
@@ -494,19 +494,13 @@ namespace :postgres do
     # Get local database configuration for import
     local_config = fetch(:postgres_local_database_config)
     
-    # Debug: log what we're getting from the config
-    puts "DEBUG: local_config = #{local_config.inspect}"
-    
-    config = {
+    {
       database: database_name || fetch(:database_name) || local_config['database'],
       username: local_config['username'] || local_config['user'],
       password: local_config['password'],
       host: local_config['host'] || 'localhost',
       port: local_config['port'] || 5432
     }
-    
-    puts "DEBUG: final config = #{config.inspect}"
-    config
   end
 
   def cleanup_streaming_artifacts
