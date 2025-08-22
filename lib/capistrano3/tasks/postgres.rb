@@ -29,7 +29,7 @@ namespace :postgres do
     task :create do
       on roles(fetch(:postgres_role)) do |role|
         if fetch(:postgres_streaming_mode, false)
-          info "Skipping remote dump creation - will stream directly"
+          puts "Skipping remote dump creation - will stream directly"
         else
           grab_remote_database_config
           config = fetch(:postgres_remote_database_config)
@@ -59,7 +59,7 @@ namespace :postgres do
     desc 'Download last database dump (enhanced with streaming support)'
     task :download, [:remove_remote_file] do |_task, args|
       if fetch(:postgres_streaming_mode, false)
-        info "Skipping download - using direct streaming"
+        puts "Skipping download - using direct streaming"
       else
         on roles(fetch(:postgres_role)) do |role|
           unless fetch(:postgres_remote_sqlc_file_path)
@@ -140,13 +140,13 @@ namespace :postgres do
     desc 'Force streaming mode for subsequent postgres tasks'
     task :enable_streaming do
       set :postgres_streaming_mode, true
-      info "Streaming mode enabled - subsequent tasks will stream directly"
+      puts "Streaming mode enabled - subsequent tasks will stream directly"
     end
 
     desc 'Disable streaming mode'
     task :disable_streaming do
       set :postgres_streaming_mode, false
-      info "Streaming mode disabled - using file-based operations"
+      puts "Streaming mode disabled - using file-based operations"
     end
   end
 
@@ -155,7 +155,7 @@ namespace :postgres do
     # Enable streaming mode for this operation
     set :postgres_streaming_mode, true
     
-    info "Starting streaming replication (no local file storage)..."
+    puts "Starting streaming replication (no local file storage)..."
     
     # Prompt for database name if not provided
     grab_local_database_config
@@ -168,7 +168,7 @@ namespace :postgres do
     # Disable streaming mode
     set :postgres_streaming_mode, false
     
-    info "Streaming replication completed!"
+    puts "Streaming replication completed!"
   end
 
   def user_option(config)
@@ -285,7 +285,7 @@ namespace :postgres do
       with_postgres_credentials do |remote_config|
         local_config = get_local_database_config(database_name)
         
-        info "Streaming from #{remote_config[:database]}@#{host} to local #{local_config[:database]}"
+        puts "Streaming from #{remote_config[:database]}@#{host} to local #{local_config[:database]}"
         
         # Show performance estimates
         estimate_performance_improvement
@@ -634,7 +634,7 @@ namespace :postgres do
     optimal_jobs = [(cpu_cores * 0.75).ceil, 1].max
     optimal_jobs = [optimal_jobs, 8].min
     
-    info "Auto-detected #{cpu_cores} CPU cores, using #{optimal_jobs} parallel restore jobs"
+    puts "Auto-detected #{cpu_cores} CPU cores, using #{optimal_jobs} parallel restore jobs"
     optimal_jobs
   end
 
@@ -686,7 +686,7 @@ namespace :postgres do
     
     estimated_improvement = (parallel_improvement * compression_overhead * 100) / single_thread_baseline
     
-    info "Performance estimate: #{estimated_improvement.round}% of single-threaded performance"
-    info "Using #{parallel_jobs} parallel jobs on #{cpu_cores} CPU cores"
+    puts "Performance estimate: #{estimated_improvement.round}% of single-threaded performance"
+    puts "Using #{parallel_jobs} parallel jobs on #{cpu_cores} CPU cores"
   end
 end
