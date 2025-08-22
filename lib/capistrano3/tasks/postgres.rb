@@ -22,6 +22,7 @@ namespace :load do
     set :postgres_restore_jobs, nil
     set :postgres_fast_dump, false
     set :postgres_ssh_multiplexing, true
+    set :postgres_backup_format, 'custom'
   end
 end
 
@@ -555,8 +556,9 @@ namespace :postgres do
       'pg_dump'
     ]
 
-    # Always use custom format for parallel restore compatibility
-    cmd_parts << '--format=custom'
+    # Use format based on configuration, default to custom for compatibility
+    format = fetch(:postgres_backup_format, 'custom')
+    cmd_parts << "--format=#{format}"
     cmd_parts << '--verbose' if fetch(:postgres_verbose, true)
     cmd_parts << '--no-acl' 
     cmd_parts << '--no-owner'
