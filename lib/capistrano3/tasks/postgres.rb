@@ -494,13 +494,8 @@ namespace :postgres do
     # Get local database configuration for import
     local_config = fetch(:postgres_local_database_config)
     
-    # Ensure database name is a string, not a Question object
-    db_name = database_name || fetch(:database_name)
-    db_name = db_name.to_s if db_name.respond_to?(:to_s)
-    db_name = local_config['database'] if db_name.nil? || db_name.empty?
-    
     {
-      database: db_name,
+      database: database_name || fetch(:database_name) || local_config['database'],
       username: local_config['username'] || local_config['user'],
       password: local_config['password'],
       host: local_config['host'] || 'localhost',
