@@ -1,3 +1,5 @@
+require 'shellwords'
+
 namespace :load do
   task :defaults do
     set :postgres_backup_dir, -> { 'postgres_backup' }
@@ -159,7 +161,7 @@ namespace :postgres do
     
     # Prompt for database name if not provided
     grab_local_database_config
-    database_name = args[:database_name] || ask(:database_name, fetch(:postgres_local_database_config)['database'])
+    database_name = args[:database_name] || ask(:database_name, fetch(:postgres_local_database_config)['database']).to_s
     set(:database_name, database_name)
     
     # Perform streaming operation
@@ -404,7 +406,7 @@ namespace :postgres do
 
   def build_local_restore_command(config)
     cmd_parts = [
-      "PGPASSWORD='#{config[:password]}'",
+      "PGPASSWORD=#{Shellwords.escape(config[:password])}",
       'pg_restore'
     ]
 
@@ -421,7 +423,7 @@ namespace :postgres do
     cmd_parts << "--host=#{config[:host]}" if config[:host] && config[:host] != 'localhost'
     cmd_parts << "--port=#{config[:port]}" if config[:port] && config[:port] != 5432
     cmd_parts << "--username=#{config[:username]}" if config[:username]
-    cmd_parts << "--dbname=#{config[:database]}"
+    cmd_parts << "--dbname=#{Shellwords.escape(config[:database])}"
 
     cmd_parts.join(' ')
   end
@@ -521,26 +523,27 @@ namespace :postgres do
     
     if compression_level > 0
       # Optimized compression pipeline with buffering
+      remote_cmd = "#{dump_cmd} | gzip -#{compression_level}"
       if command_available?('pv')
         # With progress monitoring and buffering
-        "#{ssh_cmd} '#{dump_cmd} | gzip -#{compression_level}' | pv -pterab -B #{buffer_size} | gunzip | #{restore_cmd}"
+        "#{ssh_cmd} #{Shellwords.escape(remote_cmd)} | pv -pterab -B #{buffer_size} | gunzip | #{restore_cmd}"
       else
         # Standard compression with buffering
-        "#{ssh_cmd} '#{dump_cmd} | gzip -#{compression_level}' | gunzip | #{restore_cmd}"
+        "#{ssh_cmd} #{Shellwords.escape(remote_cmd)} | gunzip | #{restore_cmd}"
       end
     else
       # Direct streaming with SSH compression and buffering
       if command_available?('pv')
-        "#{ssh_cmd} '#{dump_cmd}' | pv -pterab -B #{buffer_size} | #{restore_cmd}"
+        "#{ssh_cmd} #{Shellwords.escape(dump_cmd)} | pv -pterab -B #{buffer_size} | #{restore_cmd}"
       else
-        "#{ssh_cmd} '#{dump_cmd}' | #{restore_cmd}"
+        "#{ssh_cmd} #{Shellwords.escape(dump_cmd)} | #{restore_cmd}"
       end
     end
   end
 
   def build_optimized_dump_command(config)
     cmd_parts = [
-      "PGPASSWORD='#{config[:password]}'",
+      "PGPASSWORD=#{Shellwords.escape(config[:password])}",
       'pg_dump'
     ]
 
@@ -561,7 +564,7 @@ namespace :postgres do
     # Add connection parameters
     cmd_parts << "--host=#{config[:host]}" if config[:host] != 'localhost'
     cmd_parts << "--port=#{config[:port]}" if config[:port] != 5432
-    cmd_parts << "--username=#{config[:username]}"
+    cmd_parts << "--username=#{config[:username]}" if config[:username]
 
     # Add table exclusions
     exclude_tables = fetch(:postgres_backup_exclude_table, [])
