@@ -416,7 +416,7 @@ namespace :postgres do
       ]
       
       # Add local connection parameters for psql
-      cmd_parts << "--host=#{config[:host]}" if config[:host] && config[:host] != 'localhost'
+      cmd_parts << "--host=#{config[:host]}" if config[:host]
       cmd_parts << "--port=#{config[:port]}" if config[:port] && config[:port] != 5432
       cmd_parts << "--username=#{config[:username]}" if config[:username]
       cmd_parts << "--dbname=#{Shellwords.escape(config[:database])}"
@@ -442,7 +442,7 @@ namespace :postgres do
       end
 
       # Add local connection parameters
-      cmd_parts << "--host=#{config[:host]}" if config[:host] && config[:host] != 'localhost'
+      cmd_parts << "--host=#{config[:host]}" if config[:host]
       cmd_parts << "--port=#{config[:port]}" if config[:port] && config[:port] != 5432
       cmd_parts << "--username=#{config[:username]}" if config[:username]
       cmd_parts << "--dbname=#{Shellwords.escape(config[:database])}"
