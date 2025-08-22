@@ -404,7 +404,7 @@ namespace :postgres do
     cmd_parts.join(' ')
   end
 
-  def build_local_restore_command(config)
+  def build_local_restore_command(config, streaming = false)
     cmd_parts = [
       "PGPASSWORD=#{Shellwords.escape(config[:password])}",
       'pg_restore'
@@ -415,9 +415,12 @@ namespace :postgres do
     cmd_parts << '--no-acl'
     cmd_parts << '--no-owner'
 
-    # Add parallel processing based on CPU cores
-    parallel_jobs = get_optimal_parallel_jobs
-    cmd_parts << "--jobs=#{parallel_jobs}" if parallel_jobs > 1
+    # Add parallel processing based on CPU cores, but NOT for streaming mode
+    # pg_restore --jobs cannot read from stdin (streaming)
+    unless streaming
+      parallel_jobs = get_optimal_parallel_jobs
+      cmd_parts << "--jobs=#{parallel_jobs}" if parallel_jobs > 1
+    end
 
     # Add local connection parameters
     cmd_parts << "--host=#{config[:host]}" if config[:host] && config[:host] != 'localhost'
@@ -471,8 +474,13 @@ namespace :postgres do
     # Get local database configuration for import
     local_config = fetch(:postgres_local_database_config)
     
+    # Ensure database name is a string, not a Question object
+    db_name = database_name || fetch(:database_name)
+    db_name = db_name.to_s if db_name.respond_to?(:to_s)
+    db_name = local_config['database'] if db_name.nil? || db_name.empty?
+    
     {
-      database: database_name || fetch(:database_name) || local_config['database'],
+      database: db_name,
       username: local_config['username'] || local_config['user'],
       password: local_config['password'],
       host: local_config['host'] || 'localhost',
@@ -511,8 +519,8 @@ namespace :postgres do
     # Build remote pg_dump command with optimizations
     dump_cmd = build_optimized_dump_command(remote_config)
     
-    # Build local pg_restore command with parallel processing
-    restore_cmd = build_local_restore_command(local_config)
+    # Build local pg_restore command - streaming mode (no parallel jobs)
+    restore_cmd = build_local_restore_command(local_config, true)
     
     # Build SSH connection with optimizations
     ssh_cmd = build_optimized_ssh_command(remote_host)
@@ -680,16 +688,10 @@ namespace :postgres do
 
   def estimate_performance_improvement
     cpu_cores = detect_cpu_cores
-    parallel_jobs = get_optimal_parallel_jobs
     
-    # Rough performance estimates
-    single_thread_baseline = 100
-    parallel_improvement = [parallel_jobs * 0.7, 1].max  # 70% efficiency per core
-    compression_overhead = fetch(:postgres_backup_compression_level, 0) > 0 ? 0.8 : 1.0
-    
-    estimated_improvement = (parallel_improvement * compression_overhead * 100) / single_thread_baseline
-    
-    puts "Performance estimate: #{estimated_improvement.round}% of single-threaded performance"
-    puts "Using #{parallel_jobs} parallel jobs on #{cpu_cores} CPU cores"
+    # Note: Streaming mode uses single-threaded restore (pg_restore --jobs doesn't work with stdin)
+    puts "Streaming mode: single-threaded restore (parallel restore requires files, not stdin)"
+    puts "Performance benefit: no local disk I/O, immediate streaming"
+    puts "System: #{cpu_cores} CPU cores detected"
   end
 end
