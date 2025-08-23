@@ -410,47 +410,29 @@ namespace :postgres do
   end
 
   def build_local_restore_command(config, streaming = false)
-    format = fetch(:postgres_backup_format, 'custom')
-    
-    if format == 'sql'
-      # Use psql for SQL format
-      cmd_parts = [
-        "PGPASSWORD=#{Shellwords.escape(config[:password])}",
-        'psql'
-      ]
-      
-      # Add local connection parameters for psql
-      cmd_parts << "--host=#{config[:host]}" if config[:host]
-      cmd_parts << "--port=#{config[:port]}" if config[:port] && config[:port] != 5432
-      cmd_parts << "--username=#{config[:username]}" if config[:username]
-      cmd_parts << "--dbname=#{Shellwords.escape(config[:database])}"
-      cmd_parts << '--single-transaction'  # Execute as single transaction
-      cmd_parts << '--set=ON_ERROR_STOP=1'  # Stop on first error
-    else
-      # Use pg_restore for custom format
-      cmd_parts = [
-        "PGPASSWORD=#{Shellwords.escape(config[:password])}",
-        'pg_restore'
-      ]
+    # Always use pg_restore for custom format (like original version)
+    cmd_parts = [
+      "PGPASSWORD=#{Shellwords.escape(config[:password])}",
+      'pg_restore'
+    ]
 
-      cmd_parts << '--verbose' if fetch(:postgres_verbose, true)
-      cmd_parts << '--clean'
-      cmd_parts << '--no-acl'
-      cmd_parts << '--no-owner'
+    cmd_parts << '--verbose' if fetch(:postgres_verbose, true)
+    cmd_parts << '--clean'
+    cmd_parts << '--no-acl'
+    cmd_parts << '--no-owner'
 
-      # Add parallel processing based on CPU cores, but NOT for streaming mode
-      # pg_restore --jobs cannot read from stdin (streaming)
-      unless streaming
-        parallel_jobs = get_optimal_parallel_jobs
-        cmd_parts << "--jobs=#{parallel_jobs}" if parallel_jobs > 1
-      end
-
-      # Add local connection parameters
-      cmd_parts << "--host=#{config[:host]}" if config[:host]
-      cmd_parts << "--port=#{config[:port]}" if config[:port] && config[:port] != 5432
-      cmd_parts << "--username=#{config[:username]}" if config[:username]
-      cmd_parts << "--dbname=#{Shellwords.escape(config[:database])}"
+    # Add parallel processing based on CPU cores, but NOT for streaming mode
+    # pg_restore --jobs cannot read from stdin (streaming)
+    unless streaming
+      parallel_jobs = get_optimal_parallel_jobs
+      cmd_parts << "--jobs=#{parallel_jobs}" if parallel_jobs > 1
     end
+
+    # Add local connection parameters
+    cmd_parts << "--host=#{config[:host]}" if config[:host]
+    cmd_parts << "--port=#{config[:port]}" if config[:port] && config[:port] != 5432
+    cmd_parts << "--username=#{config[:username]}" if config[:username]
+    cmd_parts << "--dbname=#{Shellwords.escape(config[:database])}"
 
     cmd_parts.join(' ')
   end
@@ -574,14 +556,8 @@ namespace :postgres do
       'pg_dump'
     ]
 
-    # Use format based on configuration, default to custom for compatibility
-    format = fetch(:postgres_backup_format, 'custom')
-    if format == 'sql'
-      # SQL format is the default plain format, don't specify --format
-      # This is more compatible across PostgreSQL versions
-    else
-      cmd_parts << "--format=#{format}"
-    end
+    # Use custom format like the original version (-Fc)
+    cmd_parts << '-Fc'
     cmd_parts << '--verbose' if fetch(:postgres_verbose, true)
     cmd_parts << '--no-acl' 
     cmd_parts << '--no-owner'
