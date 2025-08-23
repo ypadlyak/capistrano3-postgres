@@ -162,7 +162,11 @@ namespace :postgres do
     
     # Prompt for database name if not provided
     grab_local_database_config
-    database_name = args[:database_name] || ask(:database_name, fetch(:postgres_local_database_config)['database'])
+    database_name = args[:database_name]
+    unless database_name
+      default_db = fetch(:postgres_local_database_config)['database']
+      database_name = ask(:database_name, default_db)
+    end
     set(:database_name, database_name)
     
     # Perform streaming operation
